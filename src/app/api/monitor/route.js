@@ -1,7 +1,6 @@
 import { connectDB } from "@/lib/db";
 import { checkWebsiteStatus } from "@/lib/monitor";
-import Website from "@/Models/website";
-
+import { Website } from "@/Models/website";
 
 
 // To handle get requests for uptime monitoring
