@@ -3,7 +3,7 @@ import {
     GoogleGenAI,
     createUserContent,
     createPartFromUri,
-  } from "@google/genai";
+} from "@google/genai";
 
 export async function POST(req, res) {
     try {
