@@ -27,10 +27,16 @@ export default function PhishingDetector() {
     // Send URL to backend as a POST request
     axios.post("/api/analyze", { url })
       .then(response => {
-        console.log("Backend response:", response.data)
+        console.log("Backend response:", response.data);
+        setResult(response.data); // Update result with backend response
       })
       .catch(error => {
-        console.error("Error sending URL:", error)
+        console.error("Error sending URL:", error.message);
+        setResult({
+          safe: false,
+          score: 0,
+          details: ["Failed to analyze the URL. Please try again later."],
+        });
       })
 
     // Simulate analysis with progress updates
