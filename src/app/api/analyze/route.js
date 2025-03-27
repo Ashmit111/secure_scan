@@ -1,8 +1,6 @@
 
 import {
     GoogleGenAI,
-    createUserContent,
-    createPartFromUri,
   } from "@google/genai";
 
 export async function POST(req, res) {
@@ -44,7 +42,7 @@ domain_expiration_days: The number of days until the domain expires.
 ssl_issuer: The issuer of the SSL certificate.
 ssl_valid_days: The number of days the SSL certificate is valid.
 is_google_indexed: A boolean value indicating whether the domain is indexed by Google (true or false).
-alexa_rank: (Note: Alexa Rank is no longer available. Return "Alexa Rank data is no longer available.")
+is_domain_Blacklisted: Check all the online sources where You can find all the blacklisted domains and if the provided domain lies in those lists ...return a boolen value true or false based on the result 
 is_whois_private: A boolean value indicating whether the WHOIS information is private (true or false).
 Format Output: Return the extracted information in a valid JSON object with the specified keys.
 Error Handling: If any of the required information cannot be extracted, return "null" for that corresponding key in the JSON object.
@@ -63,13 +61,14 @@ JSON
   "ssl_issuer": "Let's Encrypt",
   "ssl_valid_days": 90,
   "is_google_indexed": true,
-  "alexa_rank": "Alexa Rank data is no longer available.",
+  "is_domain_blacklisted":false,  
   "is_whois_private": false
 }
 Constraints:
 
 Return valid JSON.
-Return "null" for data that cannot be found.
+If data that cannot be found Return the reason due to which data didn't found.
+Do not add null in the response add the reason why the data is null
 Do not add any additional text to the response, only the JSON.
 Now, process the provided URL ${url} and return the requested information in JSON format.`
 
