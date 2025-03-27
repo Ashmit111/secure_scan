@@ -1,7 +1,7 @@
 import { connectDB } from "@/lib/db";
 import { checkWebsiteStatus } from "@/lib/monitor";
 import { Website } from "@/Models/website";
-
+import { sendAlert } from "@/lib/alert";
 
 // To handle get requests for uptime monitoring
 export async function GET(req) {
@@ -36,10 +36,17 @@ export async function GET(req) {
             existingWebsite.status = result.isUp ? "UP" : "DOWN";
             existingWebsite.lastChecked = Date.now();
             await existingWebsite.save();
+
+            if (!result.isUp) {
+                console.log("Website is down sending alert");
+                await sendAlert(existingWebsite.userEmail, url, result.status);
+            }
+
         } else {
             //  Create a new website entry in DB
             await Website.create({
                 url,
+                userEmail,
                 status: result.isUp ? "UP" : "DOWN",
                 responseTime: result.responseTime,
                 logs: [
