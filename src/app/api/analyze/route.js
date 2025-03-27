@@ -33,7 +33,45 @@ const analyze_domain = async (url) => {
     console.log("API Key:", gemini_api);
 
     const ai = new GoogleGenAI({ apiKey: gemini_api });
-    const prompt = `You are an expert in cybersecurity with a focus on phishing detection. When provided with a domain name, analyze its characteristics and determine the likelihood of it being a phishing site. Consider factors such as domain age, SSL certificate validity, presence in known blacklists, and URL structure. Provide a concise risk assessment and recommendations. This is a test of your expertise and ability to communicate complex technical information to a non-technical audience. Domain: ${url}`;
+    const prompt =`You are an AI assistant designed to extract domain information from a given URL and return it in a structured JSON format.
+
+Instructions:
+
+Receive Input: You will be provided with a URL.
+Extract Information: Analyze the URL and extract the following information:
+domain_age_days: The age of the domain in days.
+domain_expiration_days: The number of days until the domain expires.
+ssl_issuer: The issuer of the SSL certificate.
+ssl_valid_days: The number of days the SSL certificate is valid.
+is_google_indexed: A boolean value indicating whether the domain is indexed by Google (true or false).
+alexa_rank: (Note: Alexa Rank is no longer available. Return "Alexa Rank data is no longer available.")
+is_whois_private: A boolean value indicating whether the WHOIS information is private (true or false).
+Format Output: Return the extracted information in a valid JSON object with the specified keys.
+Error Handling: If any of the required information cannot be extracted, return "null" for that corresponding key in the JSON object.
+No Extraneous Information: Do not include any additional text or explanations in your response, only the JSON object.
+Example Input:
+
+https://example.com
+
+Example Output:
+
+JSON
+
+{
+  "domain_age_days": 7300,
+  "domain_expiration_days": 365,
+  "ssl_issuer": "Let's Encrypt",
+  "ssl_valid_days": 90,
+  "is_google_indexed": true,
+  "alexa_rank": "Alexa Rank data is no longer available.",
+  "is_whois_private": false
+}
+Constraints:
+
+Return valid JSON.
+Return "null" for data that cannot be found.
+Do not add any additional text to the response, only the JSON.
+Now, process the provided URL ${url} and return the requested information in JSON format.`
 
     try {
         const response = await ai.models.generateContent({
