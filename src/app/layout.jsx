@@ -21,7 +21,7 @@ export default function RootLayout({ children }) {
   }, [])
 
   return (
-    <ClerkProvider>
+    // <ClerkProvider>
       <html lang="en">
         <head>
           <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -35,6 +35,6 @@ export default function RootLayout({ children }) {
           )}
         </body>
       </html>
-    </ClerkProvider>
+    // </ClerkProvider>
   )
 }

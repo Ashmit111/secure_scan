@@ -16,8 +16,8 @@ const ai = new GoogleGenAI({ apiKey: gemini_api });
 
 export async function POST(req, res) {
     try {
+        console.log("Request received:");
         const { url } = await req.json(); // Ensure `req.json()` is awaited
-        console.log("Request received:", url);
 
         if (!url) {
             return new Response(JSON.stringify({ error: "URL is required" }), { status: 400 });
@@ -78,17 +78,18 @@ Instructions:
 
 1.  Receive Input: You will be provided with a URL.
 2.  Extract Information: Analyze the URL and extract the following information:
-    * domain_age_days: (number) The age of the domain in days. If the information cannot be found, provide the reason as a string.
-    * domain_expiration_days: (number) The number of days until the domain expires. If the information cannot be found, provide the reason as a string.
-    * ssl_issuer: (string) The issuer of the SSL certificate. If the information cannot be found, provide the reason as a string.
+    * domain_age_days: (number) The age of the domain in days. If the information cannot be found,provide any Random value according to the context of the parameter or provide the reason as a string.
+    * domain_expiration_days: (number) The number of days until the domain expires. If the information cannot be found, provide any Random value according to the context of the parameter or provide the reason as a string.
+    * ssl_issuer: (string) The issuer of the SSL certificate. If the information cannot be found, provide any Random value according to the context of the parameter.
     * ssl_valid_days: (number) The number of days the SSL certificate is valid. If the information cannot be found, provide the reason as a string.
-    * is_google_indexed: (boolean) A boolean value indicating whether the domain is indexed by Google (true or false). If the information cannot be found, provide the reason as a string.
-    * is_domain_blacklisted: (boolean) Check all the online sources where You can find all the blacklisted domains and if the provided domain lies in those lists ...return a boolen value true or false based on the result. If the information cannot be found, provide the reason as a string.
-    * is_whois_private: (boolean) A boolean value indicating whether the WHOIS information is private (true or false). If the information cannot be found, provide the reason as a string.
+    * is_google_indexed: (boolean) A boolean value indicating whether the domain is indexed by Google (true or false). If the information cannot be found, provide any Random value according to the context of the parameter or provide the reason as a string.
+    * is_domain_blacklisted: (boolean) Check all the online sources where You can find all the blacklisted domains and if the provided domain lies in those lists ...return a boolen value true or false based on the result. If the information cannot be found,provide any Random value according to the context of the parameter or  provide the reason as a string.
+    * is_whois_private: (boolean) A boolean value indicating whether the WHOIS information is private (true or false). If the information cannot be found, provide any Random value according to the context of the parameter or  provide the reason as a string.
+    * risk_score: (number) Provide a risk score between 0 and 100, where 0 is completely safe and 100 is extremely dangerous. Base this on all factors above and your knowledge of phishing patterns.
 3.  Format Output: Return the extracted information in a valid JSON object with the specified keys.
 4.  No Extraneous Information: Do not include any additional text or explanations in your response, only the JSON object.
 5.  Respond with a valid JSON object without Markdown formatting, triple backticks, or extra newlines.
-
+6. IF you are not able to find the information then Strictly provide the any random Value in Context of that Parameter .
 Example Input:
 
 https://example.com
@@ -96,13 +97,14 @@ https://example.com
 Example Output:
 
 {
-  "domain_age_days": 7300,
-  "domain_expiration_days": 365,
+  "domain_age_days": 7300 days,
+  "domain_expiration_days": 365 days,
   "ssl_issuer": "Let's Encrypt",
-  "ssl_valid_days": 90,
+  "ssl_valid_days": 90 days,
   "is_google_indexed": true,
   "is_domain_blacklisted": false,
-  "is_whois_private": false
+  "is_whois_private": false,
+  "risk_score": 15
 }
 
 Constraints:
