@@ -28,39 +28,44 @@ export default function PhishingDetector() {
     axios.post("/api/analyze", { url })
       .then(response => {
         console.log("Backend response:", response.data);
-        setResult(response.data); // Update result with backend response
-      })
-      .catch(error => {
-        console.error("Error sending URL:", error.message);
+        clearInterval(interval); // Clear the interval when response is received
+        setIsAnalyzing(false);
+        
+        // Process actual data from the backend
+        const domainData = response.data.domainAnalysis?.data;
+        const externalLinksData = response.data.externalLinksEvaluations || [];
+        
+        // Transform the data for UI display
         setResult({
-          safe: false,
-          score: 0,
-          details: ["Failed to analyze the URL. Please try again later."],
+          safe: domainData && !domainData.is_domain_blacklisted,
+          score: domainData ? (domainData.is_domain_blacklisted ? 80 : 25) : 50,
+          details: [
+            domainData ? `Domain age: ${domainData.domain_age_days} days` : "Domain age unknown",
+            domainData ? `SSL valid for: ${domainData.ssl_valid_days} days` : "SSL information unavailable",
+            domainData ? `SSL issuer: ${domainData.ssl_issuer}` : "SSL issuer unknown",
+            domainData ? `Google indexed: ${domainData.is_google_indexed ? "Yes" : "No"}` : "Google indexing unknown",
+            `External links evaluated: ${externalLinksData.length}`
+          ]
         });
       })
+      .catch(error => {
+        console.error("Error sending URL:", error);
+        clearInterval(interval); // Clear the interval on error
+        setIsAnalyzing(false);
+        setResult({
+          safe: false,
+          score: 100,
+          details: ["Failed to analyze the URL. Please try again later.", `Error: ${error.message || "Unknown error"}`],
+        });
+      });
 
-    // Simulate analysis with progress updates
+    // Simulate progress updates
     const interval = setInterval(() => {
       setProgress((prev) => {
-        const newProgress = prev + Math.random() * 15
-        if (newProgress >= 100) {
-          clearInterval(interval)
-          setIsAnalyzing(false)
-
-          // Mock result - in a real app, this would come from an API
-          const isSafe = Math.random() > 0.5
-          setResult({
-            safe: isSafe,
-            score: isSafe ? Math.floor(Math.random() * 20) : 70 + Math.floor(Math.random() * 30),
-            details: isSafe
-              ? ["Domain age verification passed", "SSL certificate valid", "No suspicious redirects"]
-              : ["Suspicious URL structure", "Domain recently registered", "Mimics legitimate brand"],
-          })
-          return 100
-        }
-        return newProgress
-      })
-    }, 300)
+        const newProgress = prev + Math.random() * 15;
+        return newProgress >= 95 ? 95 : newProgress; // Cap at 95% until actual response
+      });
+    }, 300);
   }
 
   return (

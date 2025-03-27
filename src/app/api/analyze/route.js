@@ -1,4 +1,3 @@
-
 import {
     GoogleGenAI,
     createUserContent,
@@ -25,9 +24,9 @@ export async function POST(req, res) {
         }
 
         const domainAnalysisResult = await analyze_domain(url);
-        // console.log("Analysis result:", result);
-
         const externalEvaluations = await evaluateExternalLinks(url);
+        
+        // Don't parse externalEvaluations as JSON - it's already processed
         console.log("External links evaluations:", externalEvaluations);
 
         // Combine both results
@@ -36,14 +35,31 @@ export async function POST(req, res) {
             externalLinksEvaluations: externalEvaluations,
         };
 
-        console.log(combinedResult)
-
-
+        // Don't parse combinedResult - it's already an object
+        console.log("Combined result:", combinedResult);
 
         return new Response(JSON.stringify(combinedResult), { status: 200 });
     } catch (error) {
         console.error("Error in POST handler:", error);
         return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), { status: 400 });
+    }
+}
+
+// Helper function to clean AI responses from markdown formatting
+function cleanJsonResponse(text) {
+    // Remove markdown formatting like ```json and ``` that might be in the response
+    let cleaned = text.replace(/```json|```/g, '').trim();
+    
+    // Handle possible additional text before or after the JSON
+    try {
+        // Try to find JSON content between curly braces
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return jsonMatch[0];
+        }
+        return cleaned;
+    } catch (e) {
+        return cleaned;
     }
 }
 
@@ -71,6 +87,7 @@ Instructions:
     * is_whois_private: (boolean) A boolean value indicating whether the WHOIS information is private (true or false). If the information cannot be found, provide the reason as a string.
 3.  Format Output: Return the extracted information in a valid JSON object with the specified keys.
 4.  No Extraneous Information: Do not include any additional text or explanations in your response, only the JSON object.
+5.  Respond with a valid JSON object without Markdown formatting, triple backticks, or extra newlines.
 
 Example Input:
 
@@ -93,6 +110,7 @@ Constraints:
 * Return valid JSON. NO MARKDOWN FORMAT OR STRING --- dont include that triple backticks and json specified in the response 
 * If data cannot be found, return the reason as a string.
 * Do not add any additional text to the response, only the JSON.
+*Respond with a valid JSON object without Markdown formatting, triple backticks, or extra newlines.
 
 Now, process the provided URL ${url} and return the requested information in JSON format.`
 
@@ -102,17 +120,26 @@ Now, process the provided URL ${url} and return the requested information in JSO
             contents: [prompt]
         });
 
-        if (!response || !response.candidates || !response.candidates[0]) {
+        if (!response || !response.text) {
             throw new Error("Invalid response from Google Generative AI");
         }
 
+        // Access the text content properly from the response object
         const text = response.text;
         console.log("Generated text:", text);
 
-        return { data: text, status: 200 };
+        // Clean the response and try to parse as JSON
+        try {
+            const cleanedText = cleanJsonResponse(text);
+            const jsonData = JSON.parse(cleanedText);
+            return { data: jsonData, status: 200 };
+        } catch (e) {
+            console.error("Error parsing domain analysis JSON:", e);
+            return { data: text, status: 200 };
+        }
     } catch (error) {
         console.error("Error in analyze_domain:", error);
-        throw new Error("Failed to analyze domain");
+        throw new Error(`Failed to analyze domain: ${error.message}`);
     }
 };
 
@@ -196,7 +223,9 @@ NOTE :(Strictly Follow it ) ---> Return it as a plain JSON object with no markdo
 Each URL should be represented as a JSON object with the specified keys.
 The "reason" should be a concise, one-line explanation.
 Do not include any additional text or explanations outside the JSON output.
+Respond with a valid JSON object without Markdown formatting, triple backticks, or extra newlines.
 Now, process the provided array of external URLs and return the evaluation results in JSON format.Link to analyze ${externalLink}`;
+
 
 
         const response = await ai.models.generateContent({
@@ -204,23 +233,37 @@ Now, process the provided array of external URLs and return the evaluation resul
             contents: [systemPrompt],
         });
 
+        // Access the text content properly
         const text = response.text;
-        return text;
+        
+        // Clean the response and try to parse as JSON
+        try {
+            const cleanedText = cleanJsonResponse(text);
+            return JSON.parse(cleanedText);
+        } catch (e) {
+            console.error("Error parsing link trustworthiness JSON:", e);
+            return { link: externalLink, is_safe: "Unknown", reason: "Error parsing response" };
+        }
     } catch (error) {
         console.error(`Error assessing link ${externalLink}: ${error.message}`);
-        return { externalLink, evaluation: "Error assessing link" };
+        return { link: externalLink, is_safe: "Unknown", reason: "Error assessing link" };
     }
 }
 
 // Function to extract external links and evaluate each link's trustworthiness
 async function evaluateExternalLinks(url) {
-    const externalLinks = await extractExternalLinks(url);
-    const evaluations = [];
-    for (const link of externalLinks) {
-        const evalResult = await assessLinkTrustworthiness(link);
-        evaluations.push(evalResult);
+    try {
+        const externalLinks = await extractExternalLinks(url);
+        const evaluations = [];
+        for (const link of externalLinks) {
+            const evalResult = await assessLinkTrustworthiness(link);
+            evaluations.push(evalResult);
+        }
+        return evaluations;
+    } catch (error) {
+        console.error("Error evaluating external links:", error);
+        return []; // Return empty array on error
     }
-    return evaluations;
 }
 
 
