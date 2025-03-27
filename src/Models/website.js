@@ -7,6 +7,11 @@ const WebsiteSchema = new mongoose.Schema(
             required: true,
             unique: true
         },
+        userEmail: { // Store the user's email
+            type: String,
+            required: true,
+            unique: true
+        },
         status: {
             type: String,
             enum: ["UP", "DOWN"],
