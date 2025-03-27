@@ -1,4 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import {
+    GoogleGenAI,
+    createUserContent,
+    createPartFromUri,
+  } from "@google/genai";
 
 export async function POST(req, res) {
     try {
@@ -27,21 +32,20 @@ const analyze_domain = async (url) => {
 
     console.log("API Key:", gemini_api);
 
-    const googleGenerativeAI = new GoogleGenerativeAI({ apiKey: gemini_api });
-
+    const ai = new GoogleGenAI({ apiKey: gemini_api });
     const prompt = `You are an expert in cybersecurity with a focus on phishing detection. When provided with a domain name, analyze its characteristics and determine the likelihood of it being a phishing site. Consider factors such as domain age, SSL certificate validity, presence in known blacklists, and URL structure. Provide a concise risk assessment and recommendations. This is a test of your expertise and ability to communicate complex technical information to a non-technical audience. Domain: ${url}`;
 
     try {
-        const response = await googleGenerativeAI.generateText({
+        const response = await ai.models.generateContent({
             model: "gemini-2.0-flash", // Correct model name for text generation
-            prompt: prompt,
+            contents: [prompt]
         });
 
         if (!response || !response.candidates || !response.candidates[0]) {
             throw new Error("Invalid response from Google Generative AI");
         }
 
-        const text = response.candidates[0].output;
+        const text = response.text;
         console.log("Generated text:", text);
 
         return { data: text, status: 200 };
