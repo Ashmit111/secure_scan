@@ -3,6 +3,16 @@ import {
     GoogleGenAI,
   } from "@google/genai";
 
+  import axios from "axios";
+  import * as cheerio from 'cheerio'
+
+  //globally declare kar raha hu taaki sabhi function me use kar saku 
+  // nahi toh baar baar likhna padega 
+  //Aur Optimise karne ke liye 
+  // isko ek function bhi bana sakte...aur usko prompt pass kar sakte and it will return reponse 
+  const gemini_api = process.env.GEMINI_API_KEY;
+  const ai = new GoogleGenAI({ apiKey: gemini_api });
+
 export async function POST(req, res) {
     try {
         const { url } = await req.json(); // Ensure `req.json()` is awaited
@@ -12,9 +22,23 @@ export async function POST(req, res) {
             return new Response(JSON.stringify({ error: "URL is required" }), { status: 400 });
         }
 
-        const result = await analyze_domain(url);
-        console.log("Analysis result:", result);
-        return new Response(JSON.stringify(result), { status: 200 });
+        const domainAnalysisResult = await analyze_domain(url);
+        // console.log("Analysis result:", result);
+
+        const externalEvaluations = await evaluateExternalLinks(url);
+        console.log("External links evaluations:", externalEvaluations);
+    
+        // Combine both results
+        const combinedResult = {
+          domainAnalysis: domainAnalysisResult,
+          externalLinksEvaluations: externalEvaluations,
+        };
+
+        console.log(combinedResult)
+    
+
+
+        return new Response(JSON.stringify(combinedResult), { status: 200 });
     } catch (error) {
         console.error("Error in POST handler:", error);
         return new Response(JSON.stringify({ error: error.message || "Internal Server Error" }), { status: 400 });
@@ -22,7 +46,6 @@ export async function POST(req, res) {
 }
 
 const analyze_domain = async (url) => {
-    const gemini_api = process.env.GEMINI_API_KEY;
 
     if (!gemini_api) {
         throw new Error("GEMINI_API_KEY is not set in environment variables");
@@ -30,7 +53,7 @@ const analyze_domain = async (url) => {
 
     console.log("API Key:", gemini_api);
 
-    const ai = new GoogleGenAI({ apiKey: gemini_api });
+   
     const prompt =`You are an AI assistant designed to extract domain information from a given URL and return it in a structured JSON format.
 
 Instructions:
@@ -91,3 +114,113 @@ Now, process the provided URL ${url} and return the requested information in JSO
         throw new Error("Failed to analyze domain");
     }
 };
+
+
+// cheerio ka code to extract the external links 
+async function extractExternalLinks(url) {
+  try {
+    const { data: html } = await axios.get(url);
+    const $ = cheerio.load(html);
+    // Remove non-content elements
+    $('script, style, noscript, iframe, svg').remove();
+    const externalLinks = new Set();
+    $('a').each((_, el) => {
+      const href = $(el).attr('href');
+      if (!href || href === "/" || href.startsWith('#')) return;
+      try {
+        const absoluteUrl = new URL(href, url).href;
+        // Check if the link is external by comparing origins
+        if (!absoluteUrl.startsWith(new URL(url).origin)) {
+          externalLinks.add(absoluteUrl);
+        }
+      } catch (error) {
+        console.warn(`Invalid URL: ${href}`);
+      }
+    });
+    return Array.from(externalLinks);
+  } catch (error) {
+    console.error(`Error fetching ${url}: ${error.message}`);
+    return [];
+  }
+}
+
+
+//Cherio ka output denge ab gemini ko 
+
+async function assessLinkTrustworthiness(externalLink) {
+    try {
+      const systemPrompt = `You are an expert digital trust evaluator. Your task is to analyze provided external URLs and determine their trustworthiness.
+
+Instructions:
+
+Receive Input: You will be provided with an array of external URLs.
+Evaluate Each URL: For each URL in the array, perform the following evaluations:
+Reputable Domain: Determine if the URL originates from a reputable domain.
+Phishing/Malicious Intent: Check for signs of phishing or malicious intent.
+Security: Verify the presence of proper security measures (HTTPS, verified certificates).
+Public Reputation: Consult public sources and online reputation services for domain information.
+Categorize Trustworthiness: Assign one of the following categories to each URL: "Trustworthy", "Suspicious", or "Untrustworthy".
+Provide Reason: Give a concise, one-line explanation for the trustworthiness categorization.
+Format Output: Return the evaluation results in a JSON array. Each element in the array should be a JSON object with the following keys:
+link: The external URL.
+is_safe: The trustworthiness category ("Trustworthy", "Suspicious", or "Untrustworthy").
+reason: A one-line explanation for the categorization.
+Example Input:
+
+["https://google.com", "http://malicious-site.com", "https://example.org"]
+
+Example Output:
+
+JSON
+
+
+  {
+    "link": "https://google.com",
+    "is_safe": "Trustworthy",
+    "reason": "Established domain with secure HTTPS and positive reputation."
+  },
+  {
+    "link": "http://malicious-site.com",
+    "is_safe": "Untrustworthy",
+    "reason": "Insecure HTTP, potential phishing, and poor reputation."
+  },
+  {
+    "link": "https://example.org",
+    "is_safe": "Trustworthy",
+    "reason": "Secure HTTPS and generally reliable domain."
+  }
+
+Constraints:
+
+Return a valid JSON array.
+Each URL should be represented as a JSON object with the specified keys.
+The "reason" should be a concise, one-line explanation.
+Do not include any additional text or explanations outside the JSON output.
+Now, process the provided array of external URLs and return the evaluation results in JSON format.Link to analyze ${externalLink}`;
+
+  
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [systemPrompt],
+      });
+  
+      const text = response.text;
+      return   text ;
+    } catch (error) {
+      console.error(`Error assessing link ${externalLink}: ${error.message}`);
+      return { externalLink, evaluation: "Error assessing link" };
+    }
+  }
+  
+  // Function to extract external links and evaluate each link's trustworthiness
+  async function evaluateExternalLinks(url) {
+    const externalLinks = await extractExternalLinks(url);
+    const evaluations = [];
+    for (const link of externalLinks) {
+      const evalResult = await assessLinkTrustworthiness(link);
+      evaluations.push(evalResult);
+    }
+    return evaluations;
+  }
+  
+
