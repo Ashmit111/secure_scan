@@ -1,13 +1,15 @@
 import mongoose from "mongoose";
-import dotenv from dotenv;
+import dotenv from "dotenv";
 
 
 dotenv.config();
 
+const DB_NAME = "securescan";
+
 export const connectDB = async () => {
     try {
 
-        const mongoURI = `${process.env.MONGO_URI}/ ${securescan}`;
+        const mongoURI = `${process.env.MONGO_URI}/ ${DB_NAME}`;
 
         const connectionInstance = await mongoose.connect(mongoURI);
 
