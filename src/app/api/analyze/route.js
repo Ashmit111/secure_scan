@@ -1,6 +1,8 @@
 
 import {
     GoogleGenAI,
+    createUserContent,
+    createPartFromUri,
   } from "@google/genai";
 
   import axios from "axios";
