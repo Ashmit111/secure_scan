@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db";
 import { checkWebsiteStatus } from "@/lib/monitor";
-import Website from "@/models/website";
+import Website from "@/Models/website";
 
 
 
