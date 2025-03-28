@@ -223,7 +223,7 @@ export default function PhishingDetector() {
 
       <main className="flex-1 ">
         {/* Hero Section with Scanner */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted py-20 pl-44 ml-10">
+        <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted py-20 pl-28">
           <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
           <div className="container relative z-10">
             <div className="mx-auto max-w-3xl text-center mb-10">
