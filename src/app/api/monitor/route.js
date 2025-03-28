@@ -3,6 +3,7 @@ import { checkWebsiteStatus } from "@/lib/monitor";
 import { Website } from "@/Models/website";
 import { sendAlert } from "@/lib/alert";
 
+
 // To handle get requests for uptime monitoring
 export async function GET(req) {
     try {
@@ -46,7 +47,7 @@ export async function GET(req) {
             //  Create a new website entry in DB
             await Website.create({
                 url,
-                userEmail,
+                userEmail:"ce.te.a.146.sumit.singh@gmail.com",
                 status: result.isUp ? "UP" : "DOWN",
                 responseTime: result.responseTime,
                 logs: [
