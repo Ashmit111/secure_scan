@@ -1,21 +1,38 @@
 "use client"
 
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import axios from "axios"
-import { Shield, AlertCircle, CheckCircle2, ExternalLink, ChevronRight, Clock, Globe, ActivitySquare } from "lucide-react"
+import { Shield, AlertCircle, CheckCircle2, ExternalLink, ChevronRight, Clock, Globe, ActivitySquare, 
+         Play, Pause, RefreshCw, BarChart3, LineChart as LineChartIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import Particles from "@/components/particles"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+         AreaChart, Area, ReferenceLine  ,Label} from "recharts"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function MonitorPage() {
   const [url, setUrl] = useState("")
   const [isMonitoring, setIsMonitoring] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState(null)
+  const [isLiveMonitoring, setIsLiveMonitoring] = useState(false)
+  const [monitoringHistory, setMonitoringHistory] = useState([])
+  const [activeTab, setActiveTab] = useState("status")
+  const intervalRef = useRef(null)
   const resultRef = useRef(null)
+
+  // Clean up on component unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -27,7 +44,7 @@ export default function MonitorPage() {
     resultRef.current = null
 
     // Start progress simulation
-    const interval = setInterval(() => {
+    const progressInterval = setInterval(() => {
       setProgress((prev) => {
         const newProgress = prev + Math.random() * 20
         return newProgress >= 95 ? 95 : newProgress
@@ -35,27 +52,90 @@ export default function MonitorPage() {
     }, 200)
 
     // Call the monitor API
-    axios.get(`/api/monitor?url=${encodeURIComponent(url)}`)
+    checkWebsite(url, progressInterval)
+  }
+
+  const checkWebsite = (targetUrl, progressInterval = null) => {
+    axios.get(`/api/monitor?url=${encodeURIComponent(targetUrl)}`)
       .then(response => {
         console.log("Monitor response:", response.data)
-        clearInterval(interval)
+        if (progressInterval) clearInterval(progressInterval)
         setIsMonitoring(false)
         setProgress(100)
-        setResult(response.data)
-        resultRef.current = response.data
+
+        const currentTime = new Date()
+        const responseTimeMs = parseInt(response.data.responseTime.replace('ms', ''))
+        const newResult = {
+          ...response.data,
+          timestamp: currentTime.toISOString(),
+          formattedTime: `${currentTime.getHours()}:${currentTime.getMinutes().toString().padStart(2, '0')}:${currentTime.getSeconds().toString().padStart(2, '0')}`,
+          responseTimeNumber: responseTimeMs
+        }
+
+        setResult(newResult)
+        resultRef.current = newResult
+
+        // Add to monitoring history
+        setMonitoringHistory(prev => {
+          const newHistory = [...prev, newResult]
+          // Keep only the latest 50 entries to avoid overwhelming the graph
+          return newHistory.slice(Math.max(newHistory.length - 50, 0))
+        })
       })
       .catch(error => {
         console.error("Error monitoring URL:", error)
-        clearInterval(interval)
+        if (progressInterval) clearInterval(progressInterval)
         setIsMonitoring(false)
-        setResult({
-          url: url,
+
+        const currentTime = new Date()
+        const newResult = {
+          url: targetUrl,
           status: 0,
           isUp: false,
           responseTime: "0ms",
+          responseTimeNumber: 0,
+          timestamp: currentTime.toISOString(),
+          formattedTime: `${currentTime.getHours()}:${currentTime.getMinutes().toString().padStart(2, '0')}:${currentTime.getSeconds().toString().padStart(2, '0')}`,
           error: error.message || "Failed to monitor URL"
+        }
+        
+        setResult(newResult)
+        resultRef.current = newResult
+
+        // Add to monitoring history even if error
+        setMonitoringHistory(prev => {
+          const newHistory = [...prev, newResult]
+          // Keep only the latest 50 entries
+          return newHistory.slice(Math.max(newHistory.length - 50, 0))
         })
       })
+  }
+
+  const startLiveMonitoring = () => {
+    if (!url) return
+    
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+    
+    setIsLiveMonitoring(true)
+    
+    // Initial check
+    checkWebsite(url)
+    
+    // Set up the interval for every 5 seconds
+    intervalRef.current = setInterval(() => {
+      checkWebsite(url)
+    }, 5000)
+  }
+
+  const stopLiveMonitoring = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    setIsLiveMonitoring(false)
   }
 
   const renderStatusBadge = (status) => {
@@ -77,6 +157,193 @@ export default function MonitorPage() {
       </span>
     }
   }
+
+  const renderUpDownGrid = () => {
+    // Create a grid showing up/down status
+    const cellSize = 16;
+    const rows = 3;
+    const cols = monitoringHistory.length > 0 ? Math.min(Math.floor(monitoringHistory.length / rows) + 1, 15) : 15;
+    
+    return (
+      <div className="mt-4 flex flex-col gap-1">
+        {Array.from({ length: rows }).map((_, rowIndex) => (
+          <div key={rowIndex} className="flex gap-1">
+            {Array.from({ length: cols }).map((_, colIndex) => {
+              const index = rowIndex * cols + colIndex;
+              const entry = monitoringHistory[index];
+              
+              return (
+                <div
+                  key={colIndex}
+                  className={`h-${cellSize} w-${cellSize} rounded ${
+                    entry
+                      ? entry.isUp
+                        ? "bg-green-500"
+                        : "bg-red-500"
+                      : "bg-gray-300 dark:bg-gray-700"
+                  }`}
+                  style={{
+                    height: cellSize,
+                    width: cellSize,
+                    transition: "all 0.3s ease"
+                  }}
+                  title={entry ? `${entry.formattedTime} - ${entry.isUp ? "Up" : "Down"}` : "No data"}
+                ></div>
+              );
+            })}
+          </div>
+        ))}
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <span>Most Recent</span>
+          <span>Oldest</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderResponseTimeGraph = () => {
+    if (monitoringHistory.length === 0) return (
+      <div className="h-64 flex items-center justify-center bg-muted/20 rounded-md border">
+        <p className="text-muted-foreground">No monitoring data available yet</p>
+      </div>
+    );
+
+    const responseTimeData = [...monitoringHistory].map(item => ({
+      time: item.formattedTime,
+      responseTime: item.responseTimeNumber,
+      status: item.status,
+      isUp: item.isUp,
+    }));
+
+    // Calculate average response time
+    const avgResponseTime = responseTimeData.reduce((acc, curr) => acc + curr.responseTime, 0) / responseTimeData.length;
+
+    return (
+      <div className="h-96">
+        <h3 className="text-sm font-medium mb-4 flex items-center">
+          <LineChartIcon className="h-4 w-4 mr-2" />
+          Response Time Over Time
+          <span className="ml-auto text-xs text-muted-foreground">
+            Avg: {avgResponseTime.toFixed(1)}ms
+          </span>
+        </h3>
+        <ResponsiveContainer width="100%" height="90%">
+          <AreaChart data={responseTimeData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+            <defs>
+              <linearGradient id="responseTimeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+            <XAxis 
+              dataKey="time" 
+              tick={{ fontSize: 11 }} 
+              interval="preserveStartEnd"
+            />
+            <YAxis 
+              tick={{ fontSize: 11 }}
+              domain={[0, 'dataMax + 100']}
+              label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft', fontSize: 11 }}
+            />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'rgba(0, 0, 0, 0.8)', 
+                border: 'none', 
+                borderRadius: '4px', 
+                color: 'white',
+                fontSize: '12px'
+              }}
+              formatter={(value, name) => [`${value}ms`, 'Response Time']}
+            />
+            <ReferenceLine y={avgResponseTime} stroke="#ff7300" strokeDasharray="3 3" opacity={0.8}>
+              <Label value="Average" position="insideBottomRight" fill="#ff7300" fontSize={10} />
+            </ReferenceLine>
+            <Area 
+              type="monotone" 
+              dataKey="responseTime" 
+              stroke="#8884d8" 
+              fillOpacity={1} 
+              fill="url(#responseTimeGradient)"
+              activeDot={{ r: 6 }}
+              isAnimationActive={true}
+              animationDuration={500}
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  const renderUptimeGraph = () => {
+    if (monitoringHistory.length === 0) return (
+      <div className="h-64 flex items-center justify-center bg-muted/20 rounded-md border">
+        <p className="text-muted-foreground">No monitoring data available yet</p>
+      </div>
+    );
+
+    // Create uptime data for rendering
+    const uptimeData = [...monitoringHistory].map(item => ({
+      time: item.formattedTime,
+      uptime: item.isUp ? 1 : 0,
+      status: item.status
+    }));
+
+    // Calculate uptime percentage
+    const uptimePercentage = (uptimeData.filter(item => item.uptime === 1).length / uptimeData.length) * 100;
+
+    return (
+      <div className="h-96">
+        <h3 className="text-sm font-medium mb-4 flex items-center">
+          <BarChart3 className="h-4 w-4 mr-2" />
+          Uptime Status
+          <span className="ml-auto text-xs text-muted-foreground">
+            Uptime: {uptimePercentage.toFixed(1)}%
+          </span>
+        </h3>
+        <ResponsiveContainer width="100%" height="90%">
+          <AreaChart data={uptimeData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+            <defs>
+              <linearGradient id="uptimeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#4ade80" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#4ade80" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+            <XAxis 
+              dataKey="time" 
+              tick={{ fontSize: 11 }}
+              interval="preserveStartEnd"
+            />
+            <YAxis 
+              domain={[0, 1]}
+              tick={{ fontSize: 11 }}
+              tickFormatter={(value) => value === 1 ? 'Up' : value === 0 ? 'Down' : ''}
+            />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'rgba(0, 0, 0, 0.8)', 
+                border: 'none', 
+                borderRadius: '4px', 
+                color: 'white',
+                fontSize: '12px'
+              }}
+              formatter={(value, name) => [value === 1 ? 'Up' : 'Down', 'Status']}
+            />
+            <Area 
+              type="stepAfter" 
+              dataKey="uptime" 
+              stroke="#4ade80" 
+              fill="url(#uptimeGradient)" 
+              isAnimationActive={false}
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
 
   const renderResultCard = () => {
     if (!result) return null
@@ -101,6 +368,41 @@ export default function MonitorPage() {
                 : `The website is unreachable or returned an error: ${result.error || 'Unknown error'}`
               }
             </p>
+          </div>
+
+          <div className="ml-auto flex gap-2">
+            {isLiveMonitoring ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={stopLiveMonitoring}
+                className="gap-1"
+              >
+                <Pause className="h-3.5 w-3.5" />
+                Stop Monitoring
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={startLiveMonitoring}
+                className="gap-1"
+                disabled={!url}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Monitor Every 5s
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => checkWebsite(url)}
+              className="gap-1"
+              disabled={!url}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
           </div>
         </div>
         
@@ -146,6 +448,41 @@ export default function MonitorPage() {
               {result.isUp ? "Online" : "Offline"}
             </div>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <Tabs defaultValue="responseTime" className="w-full" onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="responseTime">Response Time</TabsTrigger>
+              <TabsTrigger value="uptime">Uptime</TabsTrigger>
+              <TabsTrigger value="status">Status Grid</TabsTrigger>
+            </TabsList>
+            <div className="mt-4 bg-white/50 dark:bg-gray-900/50 rounded-lg p-4 border">
+              <TabsContent value="responseTime" className="mt-0">
+                {renderResponseTimeGraph()}
+              </TabsContent>
+              <TabsContent value="uptime" className="mt-0">
+                {renderUptimeGraph()}
+              </TabsContent>
+              <TabsContent value="status" className="mt-0">
+                {renderUpDownGrid()}
+                <div className="mt-4 flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 bg-green-500 rounded"></div>
+                    <span className="text-xs">Up</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 bg-red-500 rounded"></div>
+                    <span className="text-xs">Down</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                    <span className="text-xs">No Data</span>
+                  </div>
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
         </div>
         
         <div className="mt-6 flex justify-end">
