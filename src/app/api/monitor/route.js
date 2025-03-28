@@ -1,75 +1,80 @@
-import { connectDB } from "@/lib/db";
-import { checkWebsiteStatus } from "@/lib/monitor";
-import { Website } from "@/Models/website";
-import { sendAlert } from "@/lib/alert";
+import axios from 'axios';
 
-
-// To handle get requests for uptime monitoring
 export async function GET(req) {
-    try {
-        const { searchParams } = new URL(req.url);
-        const url = searchParams.get("url");
+  const url = new URL(req.url);
+  const targetUrl = url.searchParams.get('url');
 
-        if (!url) {
-            return new Response(
-                JSON.stringify({ error: "URL is required" }),
-                { status: 400, headers: { "Content-Type": "application/json" } }
-            );
-        }
+  if (!targetUrl) {
+    return new Response(
+      JSON.stringify({ error: 'URL parameter is required' }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
 
-        console.log("Checking status for:", url);
-
-        // Connect to MongoDB
-        await connectDB();
-
-        // Get website status before updating DB
-        const result = await checkWebsiteStatus(url); // Call helper function
-
-        // Check if the websites already exists in DB
-        const existingWebsite = await Website.findOne({ url });
-
-        if (existingWebsite) {
-            //  Update existing website logs
-            existingWebsite.logs.push({
-                status: result.status,
-                responseTime: result.responseTime,
-            });
-            existingWebsite.status = result.isUp ? "UP" : "DOWN";
-            existingWebsite.lastChecked = Date.now();
-            await existingWebsite.save();
-
-            if (!result.isUp) {
-                console.log("Website is down sending alert");
-                await sendAlert(existingWebsite.userEmail, url, result.status);
-            }
-
-        } else {
-            //  Create a new website entry in DB
-            await Website.create({
-                url,
-                userEmail:"ce.te.a.146.sumit.singh@gmail.com",
-                status: result.isUp ? "UP" : "DOWN",
-                responseTime: result.responseTime,
-                logs: [
-                    {
-                        status: result.status,
-                        responseTime: result.responseTime,
-                    },
-                ],
-            });
-        }
-
-        //  Return the response
-        return new Response(
-            JSON.stringify(result),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-
-    } catch (error) {
-        console.error("Error in GET request:", error);
-        return new Response(
-            JSON.stringify({ error: "Internal Server Error" }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
-        );
+  // Ensure URL is valid and has proper protocol
+  let validatedUrl;
+  try {
+    validatedUrl = new URL(targetUrl);
+    if (!validatedUrl.protocol.startsWith('http')) {
+      validatedUrl = new URL(`https://${targetUrl}`);
     }
+  } catch (error) {
+    try {
+      validatedUrl = new URL(`https://${targetUrl}`);
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid URL format' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+  }
+
+  try {
+    const startTime = Date.now();
+    
+    const response = await axios.get(validatedUrl.toString(), {
+      timeout: 10000,
+      validateStatus: () => true // Don't throw on any status
+    });
+    
+    const endTime = Date.now();
+    const responseTime = `${endTime - startTime}ms`;
+    const status = response.status;
+    
+    // Consider status codes 2xx and 3xx as "up"
+    const isUp = status >= 200 && status < 400;
+    
+    return new Response(
+      JSON.stringify({
+        url: validatedUrl.toString(),
+        status,
+        isUp,
+        responseTime
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        url: validatedUrl.toString(),
+        status: 0,
+        isUp: false,
+        responseTime: "0ms",
+        error: error.message || "Request failed"
+      }),
+      {
+        status: 200, // Still return 200 as the API itself worked correctly
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
 }

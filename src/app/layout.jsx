@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react"
 import "@/app/globals.css"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
-import { ClerkProvider } from "@clerk/nextjs"
+// import { ClerkProvider } from "@clerk/nextjs"
 
 const inter = Inter({ subsets: ["latin"] })
 

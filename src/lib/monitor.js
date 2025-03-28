@@ -8,7 +8,7 @@ export const checkWebsiteStatus = async (url) => {
         const end = Date.now(); // timestamps store krne ke liye jab response mil jayega
 
 
-        console.log(response);
+        console.log(response.data);
         return {
             url, // jo url ko check kiya h
             status: response.status, 
