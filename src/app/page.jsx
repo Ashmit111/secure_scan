@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react"
 import axios from "axios"
-import { Shield, ShieldCheck, ShieldAlert, ExternalLink, ChevronRight, Lock, Eye, AlertTriangle, FileText, Globe, Calendar, Server } from "lucide-react"
+import { Shield, ShieldCheck, ShieldAlert, ExternalLink, ChevronRight, Lock, Eye, AlertTriangle, FileText, Globe, Calendar, Server, ActivitySquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -166,7 +166,7 @@ export default function PhishingDetector() {
           </ul>
         </div>
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex justify-center gap-2">
           <Button 
             variant="outline"
             type="button" 
@@ -175,6 +175,18 @@ export default function PhishingDetector() {
           >
             <FileText className="h-4 w-4" />
             View Detailed Report
+          </Button>
+          
+          <Button 
+            variant="outline"
+            type="button" 
+            className="flex items-center gap-2"
+            asChild
+          >
+            <Link href={`/monitor?url=${encodeURIComponent(url)}`}>
+              <ActivitySquare className="h-4 w-4" />
+              Monitor Website
+            </Link>
           </Button>
         </div>
 
@@ -207,6 +219,9 @@ export default function PhishingDetector() {
             </Link>
             <Link href="#how-it-works" className="text-sm font-medium hover:text-primary">
               How It Works
+            </Link>
+            <Link href="/monitor" className="text-sm font-medium hover:text-primary">
+              Website Monitor
             </Link>
             <Link href="#about" className="text-sm font-medium hover:text-primary">
               About

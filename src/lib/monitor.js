@@ -4,7 +4,7 @@ import axios from "axios";
 export const checkWebsiteStatus = async (url) => {
     try {
         const start = Date.now(); // current time ko store krne ke liye before making req.
-        const response = await axios.get(url, { timeout: 5000 }); // 5seconds ke liye
+        const response = await axios.get(url, { timeout: 3000 }); // 5seconds ke liye
         const end = Date.now(); // timestamps store krne ke liye jab response mil jayega
 
 

@@ -13,9 +13,13 @@ import Particles from "@/components/particles"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
          AreaChart, Area, ReferenceLine  ,Label} from "recharts"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSearchParams } from "next/navigation";
 
 export default function MonitorPage() {
-  const [url, setUrl] = useState("")
+  const searchParams = useSearchParams();
+  const initialUrl = searchParams.get('url') || "";
+
+  const [url, setUrl] = useState(initialUrl);
   const [isMonitoring, setIsMonitoring] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState(null)
@@ -33,6 +37,13 @@ export default function MonitorPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (initialUrl) {
+      // Run initial check if URL is provided via URL parameters
+      checkWebsite(initialUrl);
+    }
+  }, [initialUrl]);
 
   const handleSubmit = (e) => {
     e.preventDefault()
