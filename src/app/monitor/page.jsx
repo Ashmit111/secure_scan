@@ -529,10 +529,10 @@ export default function MonitorPage() {
             </Link>
           </nav>
           <div>
-            <Button variant="outline" className="mr-2 hidden md:inline-flex">
+            {/* <Button variant="outline" className="mr-2 hidden md:inline-flex">
               Log In
             </Button>
-            <Button>Sign Up</Button>
+            <Button>Sign Up</Button> */}
           </div>
         </div>
       </header>
